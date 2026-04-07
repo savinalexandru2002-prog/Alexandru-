@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 MP3 Player Ultra</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root{--primary:#4ecdc4;--bg:linear-gradient(135deg,#1e3c72,#2a5298);--glass:rgba(255,255,255,0.1)}
+        .light{--primary:#ff6b6b;--bg:linear-gradient(135deg,#f5f7fa,#c3cfe2);--glass:rgba(255,255,255,0.6)}
+        *{margin:0;padding:0;box-sizing:border-box;transition:all 0.3s}
+        body{font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;background:var(--bg);padding:20px}
+        .player{background:var(--glass);backdrop-filter:blur(20px);border-radius:30px;padding:25px;width:100%;max-width:450px;box-shadow:0 25px 50px rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2)}
+        .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
+        .theme-btn{background:rgba(255,255,255,0.2);border:none;color:#fff;padding:6px 12px;border-radius:20px;cursor:pointer;font-size:1em}
+        .theme-btn:hover{background:rgba(255,255,255,0.3)}
+        .cover{width:150px;height:150px;background:linear-gradient(45deg,#ff6b6b,#4ecdc4,#45b7d1,#96ceb4);border-radius:15px;margin:0 auto 15px;display:flex;align-items:center;justify-content:center;font-size:50px;animation:rotate 8s linear infinite;box-shadow:0 8px 25px rgba(0,0,0,0.3);position:relative;overflow:hidden}
+        .cover.paused{animation-play-state:paused}
+        canvas{position:absolute;top:0;left:0;width:100%;height:100%;opacity:0.7}
+        @keyframes rotate{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+        h1{color:#fff;text-align:center;margin-bottom:5px;font-size:1.1em}
+        .artist{color:#aaa;text-align:center;margin-bottom:15px;font-size:0.8em}
+        .visualizer{width:100%;height:50px;background:rgba(0,0,0,0.3);border-radius:8px;margin-bottom:15px;display:flex;align-items:center;justify-content:center;gap:2px;padding:0 8px}
+        .bar{width:4px;background:var(--primary);border-radius:2px;animation:dance 0.5s ease-in-out infinite}
+        @keyframes dance{0%,100%{height:8px}50%{height:35px}}
+        .progress{width:100%;height:5px;background:rgba(255,255,255,0.2);border-radius:3px;margin-bottom:6px;cursor:pointer;position:relative}
+        .progress-bar{height:100%;background:var(--primary);border-radius:3px;width:0%}
+        .time{display:flex;justify-content:space-between;color:#aaa;font-size:0.7em;margin-bottom:12px}
+        .controls{display:flex;justify-content:center;align-items:center;gap:12px;margin-bottom:12px}
+        .btn{width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,0.2);color:#fff;font-size:1em;cursor:pointer;display:flex;align-items:center;justify-content:center}
+        .btn:hover{background:rgba(255,255,255,0.3);transform:scale(1.1)}
+        .btn.play{width:55px;height:55px;font-size:1.2em;background:var(--primary)}
+        .volume{display:flex;align-items:center;gap:6px;color:#fff;margin-bottom:12px;font-size:0.9em}
+        .volume input{flex:1;height:3px;background:rgba(255,255,255,0.2);border-radius:2px;outline:none;-webkit-appearance:none}
+        .volume input::-webkit-slider-thumb{-webkit-appearance:none;width:8px;height:8px;background:var(--primary);border-radius:50%;cursor:pointer}
+        .file-input{display:none}
+        .upload-btn{width:100%;padding:10px;background:rgba(255,255,255,0.2);border:2px dashed rgba(255,255,255,0.4);border-radius:10px;color:#fff;text-align:center;cursor:pointer;font-size:0.85em;margin-bottom:10px}
+        .upload-btn:hover{background:rgba(255,255,255,0.3);border-color:var(--primary)}
+        .playlist{max-height:100px;overflow-y:auto;margin-bottom:10px;padding:6px;background:rgba(0,0,0,0.2);border-radius:8px}
+        .playlist-item{padding:5px 8px;color:#fff;cursor:pointer;border-radius:4px;font-size:0.8em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;justify-content:space-between;align-items:center}
+        .playlist-item:hover{background:rgba(255,255,255,0.1)}
+        .playlist-item.active{background:var(--primary);color:#1e3c72;font-weight:bold}
+        .remove-btn{background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:1em;padding:0 4px}
+        .action-btns{display:flex;gap:8px;margin-bottom:10px}
+        .action-btn{flex:1;padding:8px;background:rgba(255,255,255,0.2);border:none;border-radius:8px;color:#fff;font-size:0.8em;cursor:pointer}
+        .action-btn:hover{background:rgba(255,255,255,0.3)}
+        .qr-section{background:rgba(0,0,0,0.4);border-radius:10px;padding:10px;text-align:center;margin-top:10px;display:none}
+        .qr-section.active{display:block}
+        .qr-section h4{color:var(--primary);font-size:0.75em;margin-bottom:8px}
+        #qrcode{display:inline-block;background:#fff;padding:8px;border-radius:8px}
+        .qr-section p{color:#aaa;font-size:0.65em;margin-top:6px;word-break:break-all}
+        .url-box{background:rgba(0,0,0,0.4);border-radius:8px;padding:8px;margin-top:8px;font-size:0.7em}
+        .url-box h4{color:var(--primary);margin-bottom:6px;text-align:center;font-size:0.8em}
+        .url-item{color:#fff;margin:3px 0;padding:4px 6px;background:rgba(255,255,255,0.1);border-radius:4px;cursor:pointer;word-break:break-all}
+        .url-item:hover{background:rgba(76,205,196,0.3)}
+        .url-label{color:#aaa;font-size:0.6em;text-transform:uppercase}
+        .url-value{color:#00ff88;font-weight:bold;font-size:0.9em}
+        .light h1,.light .artist,.light .url-item{color:#333}
+        .light .theme-btn,.light .volume{color:#333}
+        .light .upload-btn{color:#333;border-color:rgba(0,0,0,0.3)}
+        .light .playlist-item{color:#333}
+    </style>
+</head>
+<body>
+    <div class="player">
+        <div class="header">
+            <span style="color:#fff;font-size:1.1em">🎵 MP3 Ultra</span>
+            <button class="theme-btn" onclick="toggleTheme()">🌓</button>
+        </div>
+        
+        <div class="cover" id="cover">
+            <canvas id="visualizer"></canvas>
+            <span id="coverEmoji" style="z-index:1">🎵</span>
+        </div>
+        
+        <h1 id="title">Selectează MP3</h1>
+        <p class="artist" id="artist">Încarcă melodii pentru a începe</p>
+        
+        <div class="visualizer" id="visualizerBars"></div>
+        
+        <div class="progress" id="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="time">
+            <span id="current">0:00</span>
+            <span id="duration">0:00</span>
+        </div>
+        
+        <div class="controls">
+            <button class="btn" id="prev">⏮</button>
+            <button class="btn play" id="play">▶</button>
+            <button class="btn" id="next">⏭</button>
+        </div>
+        
+        <div class="volume">
+            <span>🔊</span>
+            <input type="range" id="volume" min="0" max="100" value="70">
+            <span id="volValue">70%</span>
+        </div>
+        
+        <div class="action-btns">
+            <button class="action-btn" onclick="savePlaylist()">💾 Salvează</button>
+            <button class="action-btn" onclick="loadSavedPlaylist()">📂 Încarcă</button>
+            <button class="action-btn" onclick="toggleQR()">📱 QR</button>
+        </div>
+        
+        <div class="qr-section" id="qrSection">
+            <h4>📱 Scanează pentru a accesa</h4>
+            <div id="qrcode"></div>
+            <p id="qrUrl"></p>
+        </div>
+        
+        <label class="upload-btn">
+            📁 Încarcă fișiere MP3
+            <input type="file" class="file-input" accept="audio/mp3,audio/*" multiple id="fileInput">
+        </label>
+        
+        <div class="playlist" id="playlist"></div>
+        
+        <div class="url-box">
+            <h4>🔗 Accesează de oriunde:</h4>
+            <div class="url-item" onclick="copyUrl(this)">
+                <div class="url-label">📱 Local</div>
+                <div class="url-value" id="localUrl">http://localhost:8080</div>
+            </div>
+            <div class="url-item" onclick="copyUrl(this)">
+                <div class="url-label">🌍 Global</div>
+                <div class="url-value" id="globalUrl">Așteaptă...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const audio = new Audio();
+        let playlist = [];
+        let currentIndex = 0;
+        let isPlaying = false;
+        let audioContext, analyser, dataArray;
+
+        const playBtn = document.getElementById('play');
+        const prevBtn = document.getElementById('prev');
+        const nextBtn = document.getElementById('next');
+        const fileInput = document.getElementById('fileInput');
+        const progress = document.getElementById('progress');
+        const progressBar = document.getElementById('progressBar');
+        const volume = document.getElementById('volume');
+        const cover = document.getElementById('cover');
+        const coverEmoji = document.getElementById('coverEmoji');
+        const title = document.getElementById('title');
+        const artist = document.getElementById('artist');
+        const playlistDiv = document.getElementById('playlist');
+        const visualizerCanvas = document.getElementById('visualizer');
+        const canvasCtx = visualizerCanvas.getContext('2d');
+
+        function initVisualizer() {
+            visualizerCanvas.width = 150;
+            visualizerCanvas.height = 150;
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            const source = audioContext.createMediaElementSource(audio);
+            source.connect(analyser);
+            analyser.connect(audioContext.destination);
+            analyser.fftSize = 32;
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            drawVisualizer();
+        }
+
+        function drawVisualizer() {
+            requestAnimationFrame(drawVisualizer);
+            if(!isPlaying) {
+                canvasCtx.clearRect(0,0,150,150);
+                return;
+            }
+            analyser.getByteFrequencyData(dataArray);
+            canvasCtx.clearRect(0,0,150,150);
+            const bars = 15;
+            const barWidth = 150 / bars;
+            for(let i=0; i<bars; i++) {
+                const barHeight = (dataArray[i] / 255) * 80;
+                const x = i * barWidth;
+                const y = 75 - barHeight/2;
+                canvasCtx.fillStyle = `hsl(${i * 24}, 100%, 60%)`;
+                canvasCtx.fillRect(x, y, barWidth-2, barHeight);
+            }
+        }
+
+        function createBars() {
+            const container = document.getElementById('visualizerBars');
+            for(let i=0; i<15; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.style.animationDelay = `${i * 0.05}s`;
+                container.appendChild(bar);
+            }
+        }
+        createBars();
+
+        function updateBars() {
+            const bars = document.querySelectorAll('.bar');
+            bars.forEach((bar, i) => {
+                if(isPlaying && dataArray) {
+                    const height = (dataArray[i] / 255) * 40 + 8;
+                    bar.style.height = `${height}px`;
+                } else {
+                    bar.style.height = '8px';
+                }
+            });
+            if(isPlaying) requestAnimationFrame(updateBars);
+        }
+
+        function toggleTheme() {
+            document.body.classList.toggle('light');
+            localStorage.setItem('theme', document.body.classList.contains('light') ? 'light' : 'dark');
+        }
+        if(localStorage.getItem('theme') === 'light') document.body.classList.add('light');
+
+        function toggleQR() {
+            const section = document.getElementById('qrSection');
+            if(section.classList.contains('active')) {
+                section.classList.remove('active');
+            } else {
+                section.classList.add('active');
+                generateQR();
+            }
+        }
+
+        function generateQR() {
+            const url = window.location.href;
+            document.getElementById('qrUrl').textContent = url;
+            document.getElementById('qrcode').innerHTML = '';
+            new QRCode(document.getElementById('qrcode'), {
+                text: url,
+                width: 120,
+                height: 120,
+                colorDark: '#1e3c72',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.M
+            });
+        }
+
+        function savePlaylist() {
+            if(playlist.length === 0) return alert('Nu există melodii!');
+            const data = playlist.map((f, i) => ({name: f.name, index: i, current: i === currentIndex}));
+            localStorage.setItem('savedPlaylist', JSON.stringify(data));
+            localStorage.setItem('savedIndex', currentIndex);
+            alert('✅ Playlist salvat!');
+        }
+
+        function loadSavedPlaylist() {
+            const saved = localStorage.getItem('savedPlaylist');
+            if(!saved) return alert('Nu există playlist salvat!');
+            const data = JSON.parse(saved);
+            document.getElementById('title').textContent = `📂 ${data.length} melodii salvate`;
+            document.getElementById('artist').textContent = 'Reîncarcă file-urile MP3';
+            currentIndex = parseInt(localStorage.getItem('savedIndex') || '0');
+        }
+
+        function detectUrls() {
+            const hostname = window.location.hostname;
+            const port = window.location.port || '8080';
+            document.getElementById('localUrl').textContent = `http://localhost:${port}`;
+            if(hostname.includes('lhr.life') || hostname.includes('localhost.run')) {
+                document.getElementById('globalUrl').textContent = window.location.href;
+                document.getElementById('globalUrl').style.color = '#00ff88';
+            }
+        }
+
+        function copyUrl(element) {
+            const url = element.querySelector('.url-value').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                element.style.background = 'rgba(0,255,136,0.3)';
+                setTimeout(() => element.style.background = '', 800);
+            });
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function updatePlaylist() {
+            playlistDiv.innerHTML = '';
+            playlist.forEach((file, index) => {
+                const div = document.createElement('div');
+                div.className = 'playlist-item' + (index === currentIndex ? ' active' : '');
+                div.innerHTML = `<span>${file.name.replace('.mp3', '')}</span><button class="remove-btn" onclick="removeTrack(${index})">×</button>`;
+                div.onclick = (e) => { if(!e.target.classList.contains('remove-btn')) loadTrack(index); };
+                playlistDiv.appendChild(div);
+            });
+        }
+
+        function removeTrack(index) {
+            playlist.splice(index, 1);
+            if(currentIndex >= index) currentIndex--;
+            if(currentIndex < 0) currentIndex = 0;
+            updatePlaylist();
+            if(playlist.length === 0) {
+                audio.pause();
+                isPlaying = false;
+                playBtn.textContent = '▶';
+                cover.classList.add('paused');
+            }
+        }
+
+        function loadTrack(index) {
+            if(index < 0 || index >= playlist.length) return;
+            currentIndex = index;
+            const file = playlist[index];
+            audio.src = URL.createObjectURL(file);
+            title.textContent = file.name.replace('.mp3', '');
+            artist.textContent = `🎵 ${index + 1}/${playlist.length}`;
+            updatePlaylist();
+            if(!audioContext) initVisualizer();
+            if(audioContext.state === 'suspended') audioContext.resume();
+            if(isPlaying) {
+                audio.play();
+                cover.classList.remove('paused');
+                updateBars();
+            }
+        }
+
+        function togglePlay() {
+            if(playlist.length === 0) return;
+            if(!audioContext) initVisualizer();
+            if(audioContext.state === 'suspended') audioContext.resume();
+            if(isPlaying) {
+                audio.pause();
+                playBtn.textContent = '▶';
+                cover.classList.add('paused');
+                coverEmoji.style.display = 'block';
+            } else {
+                audio.play();
+                playBtn.textContent = '⏸';
+                cover.classList.remove('paused');
+                coverEmoji.style.display = 'none';
+                updateBars();
+            }
+            isPlaying = !isPlaying;
+        }
+
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files).filter(f => f.type.includes('audio'));
+            if(files.length > 0) {
+                playlist = [...playlist, ...files];
+                if(playlist.length === files.length) {
+                    currentIndex = 0;
+                    loadTrack(0);
+                }
+                updatePlaylist();
+                if(!isPlaying) togglePlay();
+            }
+        });
+
+        playBtn.addEventListener('click', togglePlay);
+        prevBtn.addEventListener('click', () => { if(playlist.length) { currentIndex = (currentIndex - 1 + playlist.length) % playlist.length; loadTrack(currentIndex); } });
+        nextBtn.addEventListener('click', () => { if(playlist.length) { currentIndex = (currentIndex + 1) % playlist.length; loadTrack(currentIndex); } });
+        audio.addEventListener('timeupdate', () => {
+            progressBar.style.width = ((audio.currentTime / audio.duration) * 100) + '%';
+            document.getElementById('current').textContent = formatTime(audio.currentTime);
+            document.getElementById('duration').textContent = formatTime(audio.duration || 0);
+        });
+        audio.addEventListener('ended', () => nextBtn.click());
+        progress.addEventListener('click', (e) => {
+            const rect = progress.getBoundingClientRect();
+            audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
+        });
+        volume.addEventListener('input', (e) => {
+            audio.volume = e.target.value / 100;
+            document.getElementById('volValue').textContent = e.target.value + '%';
+        });
+
+        audio.volume = 0.7;
+        detectUrls();
+    </script>
+</body>
+</html>
