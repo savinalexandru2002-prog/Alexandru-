@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import fs from "fs";
 import path from "path";
 import { lastPushTime, lastPushResults, autoPushEnabled, isPushing, triggerPush } from "../lib/auto-push";
+import { PROJECTS, ORIGINAL_FILES } from "../lib/projects";
 
 const router: IRouter = Router();
 
