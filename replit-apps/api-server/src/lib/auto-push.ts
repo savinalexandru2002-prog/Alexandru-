@@ -94,25 +94,38 @@ async function pushFilesToGitHub(token: string): Promise<{ file: string; status:
 
   for (const file of files) {
     const apiUrl = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(file.path)}`;
-    try {
-      let sha: string | undefined;
-      const existing = await fetch(apiUrl, { headers });
-      if (existing.ok) {
-        const data = await existing.json() as { sha: string };
-        sha = data.sha;
+    const encoded = Buffer.from(file.content, "utf8").toString("base64");
+
+    const tryPush = async (retries = 2): Promise<{ file: string; status: string }> => {
+      try {
+        let sha: string | undefined;
+        const existing = await fetch(apiUrl, { headers });
+        if (existing.ok) {
+          const data = await existing.json() as { sha: string };
+          sha = data.sha;
+        }
+
+        const body: Record<string, string> = {
+          message: `Auto-push: update ${file.path}`,
+          content: encoded,
+        };
+        if (sha) body.sha = sha;
+
+        const put = await fetch(apiUrl, { method: "PUT", headers, body: JSON.stringify(body) });
+
+        if (put.status === 409 && retries > 0) {
+          // Stale SHA — wait briefly and retry with fresh SHA
+          await new Promise(r => setTimeout(r, 300));
+          return tryPush(retries - 1);
+        }
+
+        return { file: file.path, status: put.ok ? "pushed" : `failed (${put.status})` };
+      } catch {
+        return { file: file.path, status: "error" };
       }
+    };
 
-      const body: Record<string, string> = {
-        message: `Auto-push: update ${file.path}`,
-        content: Buffer.from(file.content, "utf8").toString("base64"),
-      };
-      if (sha) body.sha = sha;
-
-      const put = await fetch(apiUrl, { method: "PUT", headers, body: JSON.stringify(body) });
-      results.push({ file: file.path, status: put.ok ? "pushed" : `failed (${put.status})` });
-    } catch (e) {
-      results.push({ file: file.path, status: "error" });
-    }
+    results.push(await tryPush());
   }
 
   return results;
