@@ -6,31 +6,58 @@
     <title>GitHub Distribution Hub — Alexandru-</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-
-        .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 32px; width: 100%; max-width: 480px; }
-
-        .logo { text-align: center; margin-bottom: 24px; }
-        .logo svg { fill: #f0f6fc; width: 48px; height: 48px; }
-        .logo h1 { font-size: 20px; margin-top: 12px; color: #f0f6fc; }
-        .logo p { font-size: 14px; color: #8b949e; margin-top: 6px; }
-
-        .step { display: none; }
-        .step.active { display: block; }
-
-        label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 6px; font-weight: 500; }
-        input[type="text"], input[type="password"] {
-            width: 100%; padding: 10px 12px; background: #0d1117; border: 1px solid #30363d;
-            border-radius: 6px; color: #c9d1d9; font-size: 14px; outline: none;
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0d1117; color: #c9d1d9;
+            min-height: 100vh; padding: 24px 16px;
         }
-        input:focus { border-color: #58a6ff; box-shadow: 0 0 0 3px rgba(88,166,255,0.15); }
 
-        .hint { font-size: 12px; color: #6e7681; margin-top: 6px; }
-        .hint a { color: #58a6ff; text-decoration: none; }
-        .hint a:hover { text-decoration: underline; }
+        .page { max-width: 860px; margin: 0 auto; }
 
-        .btn { width: 100%; padding: 10px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.2s; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        /* ── Header ── */
+        .header { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; padding-bottom: 20px; border-bottom: 1px solid #21262d; }
+        .header svg { fill: #f0f6fc; width: 36px; height: 36px; flex-shrink: 0; }
+        .header h1 { font-size: 22px; color: #f0f6fc; }
+        .header .subtitle { font-size: 13px; color: #8b949e; margin-top: 3px; }
+        .header-right { margin-left: auto; text-align: right; }
+        #sync-badge { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; display: inline-block; }
+        .badge-active { background: rgba(46,160,67,0.15); color: #3fb950; border: 1px solid rgba(46,160,67,0.4); }
+        .badge-syncing { background: rgba(227,179,65,0.15); color: #e3b341; border: 1px solid rgba(227,179,65,0.4); }
+        .badge-off { background: rgba(139,148,158,0.1); color: #8b949e; border: 1px solid #30363d; }
+        #last-sync { font-size: 11px; color: #6e7681; margin-top: 4px; }
+
+        /* ── Section headings ── */
+        .section-title { font-size: 13px; font-weight: 600; color: #8b949e; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px; }
+
+        /* ── Project cards ── */
+        .projects-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin-bottom: 32px; }
+        .project-card {
+            background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+            padding: 18px; display: flex; flex-direction: column; gap: 8px;
+            transition: border-color .15s;
+        }
+        .project-card:hover { border-color: #58a6ff; }
+        .project-card .card-top { display: flex; align-items: flex-start; gap: 10px; }
+        .project-card .icon { font-size: 24px; line-height: 1; flex-shrink: 0; }
+        .project-card .card-title { font-size: 15px; font-weight: 600; color: #f0f6fc; }
+        .project-card .card-desc { font-size: 12px; color: #8b949e; line-height: 1.5; }
+        .card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+        .card-status { font-size: 11px; font-weight: 600; }
+        .status-ok { color: #3fb950; }
+        .status-fail { color: #f85149; }
+        .status-pending { color: #8b949e; }
+        .card-link { font-size: 12px; color: #58a6ff; text-decoration: none; }
+        .card-link:hover { text-decoration: underline; }
+        .file-count { font-size: 11px; color: #6e7681; }
+
+        /* ── Manual sync panel ── */
+        .sync-panel { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 20px; margin-bottom: 28px; }
+        .sync-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .sync-info { flex: 1; min-width: 180px; }
+        .sync-info strong { display: block; font-size: 14px; color: #f0f6fc; }
+        .sync-info span { font-size: 12px; color: #8b949e; }
+        .btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 7px; transition: opacity .15s; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
         .btn-green { background: #238636; color: #fff; border: 1px solid #2ea043; }
         .btn-green:hover:not(:disabled) { background: #2ea043; }
         .btn-blue { background: #1f6feb; color: #fff; border: 1px solid #388bfd; }
@@ -38,238 +65,211 @@
         .btn-ghost { background: transparent; color: #8b949e; border: 1px solid #30363d; }
         .btn-ghost:hover:not(:disabled) { border-color: #8b949e; color: #c9d1d9; }
 
-        .alert { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-top: 14px; display: none; }
-        .alert.show { display: flex; align-items: flex-start; gap: 8px; }
-        .alert-error { background: rgba(248,81,73,0.1); border: 1px solid rgba(248,81,73,0.4); color: #f85149; }
-        .alert-success { background: rgba(46,160,67,0.1); border: 1px solid rgba(46,160,67,0.4); color: #3fb950; }
-        .alert-info { background: rgba(56,139,253,0.1); border: 1px solid rgba(56,139,253,0.3); color: #58a6ff; }
+        /* ── Connect token panel ── */
+        .connect-panel { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 20px; }
+        .connect-panel h3 { font-size: 14px; color: #f0f6fc; margin-bottom: 4px; }
+        .connect-panel p { font-size: 12px; color: #8b949e; margin-bottom: 14px; }
+        label { font-size: 12px; color: #8b949e; font-weight: 500; display: block; margin-bottom: 5px; }
+        .input-row { display: flex; gap: 8px; }
+        input[type="password"], input[type="text"] {
+            flex: 1; padding: 8px 12px; background: #0d1117; border: 1px solid #30363d;
+            border-radius: 6px; color: #c9d1d9; font-size: 13px; outline: none;
+        }
+        input:focus { border-color: #58a6ff; box-shadow: 0 0 0 3px rgba(88,166,255,.15); }
+        .hint { font-size: 11px; color: #6e7681; margin-top: 6px; }
+        .hint a { color: #58a6ff; text-decoration: none; }
+        .toggle-token { background: none; border: none; color: #58a6ff; font-size: 11px; cursor: pointer; padding: 4px 0; }
 
-        .user-card { display: flex; align-items: center; gap: 14px; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 14px; margin-bottom: 20px; }
-        .user-card img { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #30363d; }
-        .user-card .user-info strong { display: block; color: #f0f6fc; font-size: 15px; }
-        .user-card .user-info span { font-size: 13px; color: #8b949e; }
+        .alert { padding: 9px 13px; border-radius: 6px; font-size: 13px; margin-top: 12px; display: none; align-items: center; gap: 8px; }
+        .alert.show { display: flex; }
+        .alert-error { background: rgba(248,81,73,.1); border: 1px solid rgba(248,81,73,.4); color: #f85149; }
+        .alert-success { background: rgba(46,160,67,.1); border: 1px solid rgba(46,160,67,.4); color: #3fb950; }
 
-        .repo-info { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 14px; }
-        .repo-info .repo-row { display: flex; align-items: center; gap: 8px; color: #8b949e; margin-bottom: 6px; }
-        .repo-info .repo-row:last-child { margin-bottom: 0; }
-        .repo-info .repo-row strong { color: #58a6ff; }
-
-        .file-list { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
-        .file-item { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid #21262d; font-size: 13px; }
-        .file-item:last-child { border-bottom: none; }
-        .file-item .file-status { margin-left: auto; font-size: 12px; font-weight: 600; }
-        .file-status.pending { color: #8b949e; }
-        .file-status.pushed { color: #3fb950; }
-        .file-status.failed { color: #f85149; }
-        .file-status.pushing { color: #58a6ff; }
-
-        .divider { border: none; border-top: 1px solid #21262d; margin: 20px 0; }
-
-        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        .spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        .success-icon { font-size: 48px; text-align: center; margin-bottom: 12px; }
-        .back-link { text-align: center; margin-top: 16px; }
-        .back-link a { color: #58a6ff; font-size: 13px; cursor: pointer; text-decoration: none; }
-        .back-link a:hover { text-decoration: underline; }
-
-        .toggle-token { background: none; border: none; color: #58a6ff; font-size: 12px; cursor: pointer; padding: 0; margin-top: 4px; }
+        .github-link { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8b949e; text-decoration: none; margin-top: 16px; }
+        .github-link:hover { color: #58a6ff; }
+        .github-link svg { fill: currentColor; width: 14px; height: 14px; }
     </style>
 </head>
 <body>
-<div class="card">
-    <div class="logo">
+<div class="page">
+
+    <!-- Header -->
+    <div class="header">
         <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-        <h1>GitHub Distribution Hub</h1>
-        <p id="auto-status" style="font-size:13px;"></p>
+        <div>
+            <h1>GitHub Distribution Hub</h1>
+            <div class="subtitle">savinalexandru2002-prog / Alexandru-</div>
+        </div>
+        <div class="header-right">
+            <div id="sync-badge" class="badge-off">⚪ Loading...</div>
+            <div id="last-sync"></div>
+        </div>
     </div>
 
-    <!-- Step 1: Enter token -->
-    <div class="step active" id="step1">
+    <!-- Projects -->
+    <div class="section-title">Projects</div>
+    <div class="projects-grid" id="projects-grid">
+        <div class="project-card" style="border-style:dashed;opacity:.4;">
+            <div class="card-top"><div class="icon">⏳</div><div><div class="card-title">Loading...</div></div></div>
+        </div>
+    </div>
+
+    <!-- Sync controls -->
+    <div class="sync-panel">
+        <div class="sync-row">
+            <div class="sync-info">
+                <strong>Auto-sync</strong>
+                <span>All projects sync to GitHub every 5 minutes automatically.</span>
+            </div>
+            <button class="btn btn-blue" id="btn-sync" onclick="triggerSync()">⬆️ Sync Now</button>
+            <a href="https://github.com/savinalexandru2002-prog/Alexandru-" target="_blank" class="btn btn-ghost">View on GitHub →</a>
+        </div>
+    </div>
+
+    <!-- Manual token connect -->
+    <div class="connect-panel">
+        <h3>Manual Push</h3>
+        <p>Push using your own token (for testing or emergency use).</p>
         <label for="token">GitHub Personal Access Token</label>
-        <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
-        <button class="toggle-token" onclick="toggleTokenVisibility()">Show token</button>
-        <p class="hint">
-            Don't have one? <a href="https://github.com/settings/tokens/new?scopes=repo&description=Replit" target="_blank">Create one here</a> — check the <strong>repo</strong> box.
-        </p>
-        <div class="alert alert-error" id="err1">⚠️ <span id="err1-msg"></span></div>
-        <button class="btn btn-green" id="btn-connect" onclick="connectGitHub()">🔗 Connect to GitHub</button>
-    </div>
-
-    <!-- Step 2: Confirm & Push -->
-    <div class="step" id="step2">
-        <div class="user-card" id="user-card"></div>
-
-        <div class="repo-info">
-            <div class="repo-row">📁 Repository: <strong>savinalexandru2002-prog / Alexandru-</strong></div>
-            <div class="repo-row">🌿 Branch: <strong>main</strong></div>
+        <div class="input-row">
+            <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+            <button class="btn btn-green" id="btn-push" onclick="manualPush()">Push</button>
         </div>
-
-        <p style="font-size:13px;color:#8b949e;margin-bottom:10px;">Files to push:</p>
-        <div class="file-list" id="file-list">
-            <div class="file-item">📄 <span>index.html</span><span class="file-status pending" id="status-index">Pending</span></div>
-            <div class="file-item">📄 <span>Termux MP3 player</span><span class="file-status pending" id="status-termux">Pending</span></div>
-        </div>
-
-        <div class="alert alert-error" id="err2">⚠️ <span id="err2-msg"></span></div>
-        <div class="alert alert-success" id="success2"></div>
-
-        <button class="btn btn-blue" id="btn-push" onclick="pushFiles()">⬆️ Push All Files to GitHub</button>
-        <button class="btn btn-ghost" onclick="disconnect()" style="margin-top:8px;">← Use a different token</button>
+        <button class="toggle-token" onclick="toggleToken()">Show token</button>
+        <p class="hint">Need a token? <a href="https://github.com/settings/tokens/new?scopes=repo" target="_blank">Create one here</a> — check the <strong>repo</strong> box.</p>
+        <div class="alert alert-error" id="push-err"></div>
+        <div class="alert alert-success" id="push-ok"></div>
     </div>
 
-    <!-- Step 3: Done -->
-    <div class="step" id="step3">
-        <div class="success-icon">🎉</div>
-        <p style="text-align:center;font-size:16px;font-weight:600;color:#3fb950;margin-bottom:8px;">All done!</p>
-        <p style="text-align:center;font-size:14px;color:#8b949e;margin-bottom:20px;">Your files have been pushed to GitHub.</p>
-        <div class="file-list" id="results-list"></div>
-        <a href="https://github.com/savinalexandru2002-prog/Alexandru-" target="_blank" class="btn btn-green" style="text-decoration:none;margin-top:16px;">View on GitHub →</a>
-        <div class="back-link"><a onclick="disconnect()">Push again with a different token</a></div>
-    </div>
 </div>
 
 <script>
-let savedToken = '';
-
-async function checkAutoStatus() {
+async function loadStatus() {
     try {
-        const res = await fetch('/api/github/status');
-        const data = await res.json();
-        const el = document.getElementById('auto-status');
-        if (data.isPushing) {
-            el.innerHTML = `🔄 Syncing to GitHub...`;
-            el.style.color = '#e3b341';
-        } else if (data.enabled) {
-            const time = data.lastPushTime ? new Date(data.lastPushTime).toLocaleTimeString() : 'pending...';
-            const failed = (data.lastPushResults || []).filter(r => r.status !== 'pushed').length;
-            const total = (data.lastPushResults || []).length;
-            const pushed = total - failed;
-            const failNote = failed > 0 ? ` &nbsp;·&nbsp; <span style="color:#f85149">${failed} failed</span>` : '';
-            el.innerHTML = `🟢 Auto-push active &nbsp;·&nbsp; Last sync: <strong>${time}</strong> (${pushed}/${total} files)${failNote}`;
-            el.style.color = '#3fb950';
+        const [statusRes, projectsRes] = await Promise.all([
+            fetch('/api/github/status'),
+            fetch('/api/github/projects'),
+        ]);
+        const status = await statusRes.json();
+        const { projects, originals, lastPushTime } = await projectsRes.json();
+
+        // Badge
+        const badge = document.getElementById('sync-badge');
+        const lastEl = document.getElementById('last-sync');
+        if (status.isPushing) {
+            badge.className = 'badge-syncing';
+            badge.textContent = '🔄 Syncing...';
+        } else if (status.enabled) {
+            badge.className = 'badge-active';
+            badge.textContent = '🟢 Auto-sync on';
         } else {
-            el.textContent = '⚪ Auto-push not configured';
-            el.style.color = '#8b949e';
+            badge.className = 'badge-off';
+            badge.textContent = '⚪ Not configured';
         }
-    } catch {
-        document.getElementById('auto-status').textContent = '';
+        if (lastPushTime) {
+            const t = new Date(lastPushTime);
+            lastEl.textContent = 'Last sync: ' + t.toLocaleTimeString();
+        }
+
+        // Project cards
+        const grid = document.getElementById('projects-grid');
+        const allProjects = [...(projects || []), ...(originals || [])];
+        if (allProjects.length === 0) {
+            grid.innerHTML = '<p style="color:#8b949e;font-size:13px;">No projects yet.</p>';
+            return;
+        }
+        grid.innerHTML = allProjects.map(p => {
+            const synced = status.isPushing ? null : p.syncedOk;
+            const statusHtml = status.isPushing
+                ? `<span class="card-status status-pending">Syncing...</span>`
+                : synced === true
+                    ? `<span class="card-status status-ok">✓ Synced</span>`
+                    : synced === false
+                        ? `<span class="card-status status-fail">✗ Issues</span>`
+                        : `<span class="card-status status-pending">Pending</span>`;
+            const fileHtml = p.fileCount > 0
+                ? `<span class="file-count">${p.fileCount} file${p.fileCount !== 1 ? 's' : ''}</span>`
+                : '';
+            return `<div class="project-card">
+                <div class="card-top">
+                    <div class="icon">${p.icon}</div>
+                    <div>
+                        <div class="card-title">${p.name}</div>
+                    </div>
+                </div>
+                <div class="card-desc">${p.description}</div>
+                <div class="card-footer">
+                    <div>${statusHtml} ${fileHtml}</div>
+                    <a class="card-link" href="${p.githubUrl}" target="_blank">View →</a>
+                </div>
+            </div>`;
+        }).join('');
+
+    } catch (e) {
+        console.error('Status load failed', e);
     }
 }
-checkAutoStatus();
-setInterval(checkAutoStatus, 30000);
 
-function toggleTokenVisibility() {
+async function triggerSync() {
+    const btn = document.getElementById('btn-sync');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Syncing...';
+    try {
+        await fetch('/api/github/trigger', { method: 'POST' });
+        setTimeout(() => { loadStatus(); }, 2000);
+        setTimeout(() => { loadStatus(); }, 8000);
+    } finally {
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = '⬆️ Sync Now';
+        }, 5000);
+    }
+}
+
+function toggleToken() {
     const inp = document.getElementById('token');
     const btn = document.querySelector('.toggle-token');
-    if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide token'; }
-    else { inp.type = 'password'; btn.textContent = 'Show token'; }
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+    btn.textContent = inp.type === 'password' ? 'Show token' : 'Hide token';
 }
 
-function showStep(n) {
-    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-    document.getElementById('step' + n).classList.add('active');
-}
-
-function showErr(id, msg) {
-    const el = document.getElementById(id);
-    document.getElementById(id + '-msg').textContent = msg;
-    el.classList.add('show');
-}
-
-function hideErr(id) {
-    document.getElementById(id).classList.remove('show');
-}
-
-async function connectGitHub() {
+async function manualPush() {
     const token = document.getElementById('token').value.trim();
-    if (!token) { showErr('err1', 'Please enter your GitHub token.'); return; }
-    hideErr('err1');
+    const errEl = document.getElementById('push-err');
+    const okEl = document.getElementById('push-ok');
+    errEl.classList.remove('show');
+    okEl.classList.remove('show');
 
-    const btn = document.getElementById('btn-connect');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Verifying...';
-
-    try {
-        const res = await fetch('/api/github/verify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token })
-        });
-        const data = await res.json();
-        if (!res.ok) { showErr('err1', data.error || 'Connection failed.'); btn.disabled = false; btn.innerHTML = '🔗 Connect to GitHub'; return; }
-
-        savedToken = token;
-        document.getElementById('user-card').innerHTML = `
-            <img src="${data.avatar_url}" alt="">
-            <div class="user-info">
-                <strong>${data.name || data.login}</strong>
-                <span>@${data.login} · Connected ✓</span>
-            </div>`;
-        showStep(2);
-    } catch (e) {
-        showErr('err1', 'Network error. Is the server running?');
-    }
-    btn.disabled = false;
-    btn.innerHTML = '🔗 Connect to GitHub';
-}
-
-async function pushFiles() {
-    hideErr('err2');
-    document.getElementById('success2').classList.remove('show');
+    if (!token) { errEl.textContent = 'Please enter a token.'; errEl.classList.add('show'); return; }
 
     const btn = document.getElementById('btn-push');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Pushing files...';
-
-    document.querySelectorAll('.file-status').forEach(el => {
-        el.textContent = 'Pushing...';
-        el.className = 'file-status pushing';
-    });
+    btn.innerHTML = '<span class="spinner"></span>';
 
     try {
         const res = await fetch('/api/github/push', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: savedToken, owner: 'savinalexandru2002-prog', repo: 'Alexandru-' })
+            body: JSON.stringify({ token, owner: 'savinalexandru2002-prog', repo: 'Alexandru-' })
         });
         const data = await res.json();
-
-        if (!res.ok) {
-            showErr('err2', data.error || 'Push failed.');
-            document.querySelectorAll('.file-status').forEach(el => { el.textContent = 'Failed'; el.className = 'file-status failed'; });
-            btn.disabled = false;
-            btn.innerHTML = '⬆️ Push All Files to GitHub';
-            return;
+        if (!res.ok) { errEl.textContent = data.error || 'Push failed.'; errEl.classList.add('show'); }
+        else {
+            const pushed = (data.results || []).filter(r => r.status === 'pushed').length;
+            okEl.textContent = `✓ ${pushed} files pushed successfully.`;
+            okEl.classList.add('show');
         }
-
-        const resultsList = document.getElementById('results-list');
-        resultsList.innerHTML = data.results.map(r => `
-            <div class="file-item">
-                ${r.status === 'pushed' ? '✅' : '❌'}
-                <span>${r.file}</span>
-                <span class="file-status ${r.status === 'pushed' ? 'pushed' : 'failed'}">${r.status}</span>
-            </div>`).join('');
-        showStep(3);
-    } catch (e) {
-        showErr('err2', 'Network error. Please try again.');
-        document.querySelectorAll('.file-status').forEach(el => { el.textContent = 'Failed'; el.className = 'file-status failed'; });
-    }
+    } catch { errEl.textContent = 'Network error.'; errEl.classList.add('show'); }
 
     btn.disabled = false;
-    btn.innerHTML = '⬆️ Push All Files to GitHub';
+    btn.innerHTML = 'Push';
 }
 
-function disconnect() {
-    savedToken = '';
-    document.getElementById('token').value = '';
-    hideErr('err1');
-    showStep(1);
-}
-
-document.getElementById('token').addEventListener('keydown', e => {
-    if (e.key === 'Enter') connectGitHub();
-});
+loadStatus();
+setInterval(loadStatus, 20000);
 </script>
 </body>
 </html>
