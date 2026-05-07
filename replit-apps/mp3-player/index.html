@@ -137,9 +137,16 @@ async function checkAutoStatus() {
         const res = await fetch('/api/github/status');
         const data = await res.json();
         const el = document.getElementById('auto-status');
-        if (data.enabled) {
+        if (data.isPushing) {
+            el.innerHTML = `🔄 Syncing to GitHub...`;
+            el.style.color = '#e3b341';
+        } else if (data.enabled) {
             const time = data.lastPushTime ? new Date(data.lastPushTime).toLocaleTimeString() : 'pending...';
-            el.innerHTML = `🟢 Auto-push active &nbsp;·&nbsp; Last sync: <strong>${time}</strong>`;
+            const failed = (data.lastPushResults || []).filter(r => r.status !== 'pushed').length;
+            const total = (data.lastPushResults || []).length;
+            const pushed = total - failed;
+            const failNote = failed > 0 ? ` &nbsp;·&nbsp; <span style="color:#f85149">${failed} failed</span>` : '';
+            el.innerHTML = `🟢 Auto-push active &nbsp;·&nbsp; Last sync: <strong>${time}</strong> (${pushed}/${total} files)${failNote}`;
             el.style.color = '#3fb950';
         } else {
             el.textContent = '⚪ Auto-push not configured';
