@@ -1,20 +1,27 @@
 import { Router, type IRouter } from "express";
 import fs from "fs";
 import path from "path";
+import { lastPushTime, lastPushResults, autoPushEnabled, triggerPush } from "../lib/auto-push";
 
 const router: IRouter = Router();
 
 const WORKSPACE = "/home/runner/workspace";
 
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", ".cache"]);
+const ALLOWED_EXTS = new Set([".ts", ".js", ".tsx", ".jsx", ".json", ".yaml", ".yml", ".html", ".css", ".md", ".txt", ".env.example"]);
+
 function walkDir(dir: string, base: string, results: { path: string; content: string }[]) {
   if (!fs.existsSync(dir)) return;
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
+    if (SKIP_DIRS.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
     const rel = path.join(base, entry.name);
     if (entry.isDirectory()) {
       walkDir(full, rel, results);
     } else {
+      const ext = path.extname(entry.name);
+      if (!ALLOWED_EXTS.has(ext)) continue;
       try {
         const content = fs.readFileSync(full, "utf8");
         if (content.trim().length > 0) {
@@ -63,6 +70,19 @@ function getFilesToPush(): { path: string; content: string }[] {
 
   return files;
 }
+
+router.get("/github/status", (_req, res): void => {
+  res.json({
+    enabled: autoPushEnabled,
+    lastPushTime: lastPushTime?.toISOString() ?? null,
+    lastPushResults,
+  });
+});
+
+router.post("/github/trigger", async (_req, res): Promise<void> => {
+  const results = await triggerPush();
+  res.json({ results });
+});
 
 router.post("/github/verify", async (req, res): Promise<void> => {
   const { token } = req.body as { token?: string };
