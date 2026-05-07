@@ -74,14 +74,16 @@ function getFilesToPush(): { path: string; content: string }[] {
 router.get("/github/status", (_req, res): void => {
   res.json({
     enabled: autoPushEnabled,
+    isPushing,
     lastPushTime: lastPushTime?.toISOString() ?? null,
     lastPushResults,
   });
 });
 
-router.post("/github/trigger", async (_req, res): Promise<void> => {
-  const results = await triggerPush();
-  res.json({ results });
+router.post("/github/trigger", (_req, res): void => {
+  // Fire and forget — respond immediately, push runs in background
+  triggerPush().catch(e => console.error("Manual trigger push failed", e));
+  res.json({ started: true });
 });
 
 router.post("/github/verify", async (req, res): Promise<void> => {
