@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Connect — Alexandru-</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+
+        .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 32px; width: 100%; max-width: 480px; }
+
+        .logo { text-align: center; margin-bottom: 24px; }
+        .logo svg { fill: #f0f6fc; width: 48px; height: 48px; }
+        .logo h1 { font-size: 20px; margin-top: 12px; color: #f0f6fc; }
+        .logo p { font-size: 14px; color: #8b949e; margin-top: 6px; }
+
+        .step { display: none; }
+        .step.active { display: block; }
+
+        label { display: block; font-size: 13px; color: #8b949e; margin-bottom: 6px; font-weight: 500; }
+        input[type="text"], input[type="password"] {
+            width: 100%; padding: 10px 12px; background: #0d1117; border: 1px solid #30363d;
+            border-radius: 6px; color: #c9d1d9; font-size: 14px; outline: none;
+        }
+        input:focus { border-color: #58a6ff; box-shadow: 0 0 0 3px rgba(88,166,255,0.15); }
+
+        .hint { font-size: 12px; color: #6e7681; margin-top: 6px; }
+        .hint a { color: #58a6ff; text-decoration: none; }
+        .hint a:hover { text-decoration: underline; }
+
+        .btn { width: 100%; padding: 10px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; margin-top: 16px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.2s; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-green { background: #238636; color: #fff; border: 1px solid #2ea043; }
+        .btn-green:hover:not(:disabled) { background: #2ea043; }
+        .btn-blue { background: #1f6feb; color: #fff; border: 1px solid #388bfd; }
+        .btn-blue:hover:not(:disabled) { background: #388bfd; }
+        .btn-ghost { background: transparent; color: #8b949e; border: 1px solid #30363d; }
+        .btn-ghost:hover:not(:disabled) { border-color: #8b949e; color: #c9d1d9; }
+
+        .alert { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-top: 14px; display: none; }
+        .alert.show { display: flex; align-items: flex-start; gap: 8px; }
+        .alert-error { background: rgba(248,81,73,0.1); border: 1px solid rgba(248,81,73,0.4); color: #f85149; }
+        .alert-success { background: rgba(46,160,67,0.1); border: 1px solid rgba(46,160,67,0.4); color: #3fb950; }
+        .alert-info { background: rgba(56,139,253,0.1); border: 1px solid rgba(56,139,253,0.3); color: #58a6ff; }
+
+        .user-card { display: flex; align-items: center; gap: 14px; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 14px; margin-bottom: 20px; }
+        .user-card img { width: 48px; height: 48px; border-radius: 50%; border: 2px solid #30363d; }
+        .user-card .user-info strong { display: block; color: #f0f6fc; font-size: 15px; }
+        .user-card .user-info span { font-size: 13px; color: #8b949e; }
+
+        .repo-info { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 14px; margin-bottom: 16px; font-size: 14px; }
+        .repo-info .repo-row { display: flex; align-items: center; gap: 8px; color: #8b949e; margin-bottom: 6px; }
+        .repo-info .repo-row:last-child { margin-bottom: 0; }
+        .repo-info .repo-row strong { color: #58a6ff; }
+
+        .file-list { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
+        .file-item { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid #21262d; font-size: 13px; }
+        .file-item:last-child { border-bottom: none; }
+        .file-item .file-status { margin-left: auto; font-size: 12px; font-weight: 600; }
+        .file-status.pending { color: #8b949e; }
+        .file-status.pushed { color: #3fb950; }
+        .file-status.failed { color: #f85149; }
+        .file-status.pushing { color: #58a6ff; }
+
+        .divider { border: none; border-top: 1px solid #21262d; margin: 20px 0; }
+
+        .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .success-icon { font-size: 48px; text-align: center; margin-bottom: 12px; }
+        .back-link { text-align: center; margin-top: 16px; }
+        .back-link a { color: #58a6ff; font-size: 13px; cursor: pointer; text-decoration: none; }
+        .back-link a:hover { text-decoration: underline; }
+
+        .toggle-token { background: none; border: none; color: #58a6ff; font-size: 12px; cursor: pointer; padding: 0; margin-top: 4px; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div class="logo">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <h1>Connect to GitHub</h1>
+        <p>Paste your token once and push with one click</p>
+    </div>
+
+    <!-- Step 1: Enter token -->
+    <div class="step active" id="step1">
+        <label for="token">GitHub Personal Access Token</label>
+        <input type="password" id="token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+        <button class="toggle-token" onclick="toggleTokenVisibility()">Show token</button>
+        <p class="hint">
+            Don't have one? <a href="https://github.com/settings/tokens/new?scopes=repo&description=Replit" target="_blank">Create one here</a> — check the <strong>repo</strong> box.
+        </p>
+        <div class="alert alert-error" id="err1">⚠️ <span id="err1-msg"></span></div>
+        <button class="btn btn-green" id="btn-connect" onclick="connectGitHub()">🔗 Connect to GitHub</button>
+    </div>
+
+    <!-- Step 2: Confirm & Push -->
+    <div class="step" id="step2">
+        <div class="user-card" id="user-card"></div>
+
+        <div class="repo-info">
+            <div class="repo-row">📁 Repository: <strong>savinalexandru2002-prog / Alexandru-</strong></div>
+            <div class="repo-row">🌿 Branch: <strong>main</strong></div>
+        </div>
+
+        <p style="font-size:13px;color:#8b949e;margin-bottom:10px;">Files to push:</p>
+        <div class="file-list" id="file-list">
+            <div class="file-item">📄 <span>index.html</span><span class="file-status pending" id="status-index">Pending</span></div>
+            <div class="file-item">📄 <span>Termux MP3 player</span><span class="file-status pending" id="status-termux">Pending</span></div>
+        </div>
+
+        <div class="alert alert-error" id="err2">⚠️ <span id="err2-msg"></span></div>
+        <div class="alert alert-success" id="success2"></div>
+
+        <button class="btn btn-blue" id="btn-push" onclick="pushFiles()">⬆️ Push All Files to GitHub</button>
+        <button class="btn btn-ghost" onclick="disconnect()" style="margin-top:8px;">← Use a different token</button>
+    </div>
+
+    <!-- Step 3: Done -->
+    <div class="step" id="step3">
+        <div class="success-icon">🎉</div>
+        <p style="text-align:center;font-size:16px;font-weight:600;color:#3fb950;margin-bottom:8px;">All done!</p>
+        <p style="text-align:center;font-size:14px;color:#8b949e;margin-bottom:20px;">Your files have been pushed to GitHub.</p>
+        <div class="file-list" id="results-list"></div>
+        <a href="https://github.com/savinalexandru2002-prog/Alexandru-" target="_blank" class="btn btn-green" style="text-decoration:none;margin-top:16px;">View on GitHub →</a>
+        <div class="back-link"><a onclick="disconnect()">Push again with a different token</a></div>
+    </div>
+</div>
+
+<script>
+let savedToken = '';
+
+function toggleTokenVisibility() {
+    const inp = document.getElementById('token');
+    const btn = document.querySelector('.toggle-token');
+    if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide token'; }
+    else { inp.type = 'password'; btn.textContent = 'Show token'; }
+}
+
+function showStep(n) {
+    document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+    document.getElementById('step' + n).classList.add('active');
+}
+
+function showErr(id, msg) {
+    const el = document.getElementById(id);
+    document.getElementById(id + '-msg').textContent = msg;
+    el.classList.add('show');
+}
+
+function hideErr(id) {
+    document.getElementById(id).classList.remove('show');
+}
+
+async function connectGitHub() {
+    const token = document.getElementById('token').value.trim();
+    if (!token) { showErr('err1', 'Please enter your GitHub token.'); return; }
+    hideErr('err1');
+
+    const btn = document.getElementById('btn-connect');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Verifying...';
+
+    try {
+        const res = await fetch('/api/github/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token })
+        });
+        const data = await res.json();
+        if (!res.ok) { showErr('err1', data.error || 'Connection failed.'); btn.disabled = false; btn.innerHTML = '🔗 Connect to GitHub'; return; }
+
+        savedToken = token;
+        document.getElementById('user-card').innerHTML = `
+            <img src="${data.avatar_url}" alt="">
+            <div class="user-info">
+                <strong>${data.name || data.login}</strong>
+                <span>@${data.login} · Connected ✓</span>
+            </div>`;
+        showStep(2);
+    } catch (e) {
+        showErr('err1', 'Network error. Is the server running?');
+    }
+    btn.disabled = false;
+    btn.innerHTML = '🔗 Connect to GitHub';
+}
+
+async function pushFiles() {
+    hideErr('err2');
+    document.getElementById('success2').classList.remove('show');
+
+    const btn = document.getElementById('btn-push');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Pushing files...';
+
+    document.querySelectorAll('.file-status').forEach(el => {
+        el.textContent = 'Pushing...';
+        el.className = 'file-status pushing';
+    });
+
+    try {
+        const res = await fetch('/api/github/push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: savedToken, owner: 'savinalexandru2002-prog', repo: 'Alexandru-' })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            showErr('err2', data.error || 'Push failed.');
+            document.querySelectorAll('.file-status').forEach(el => { el.textContent = 'Failed'; el.className = 'file-status failed'; });
+            btn.disabled = false;
+            btn.innerHTML = '⬆️ Push All Files to GitHub';
+            return;
+        }
+
+        const resultsList = document.getElementById('results-list');
+        resultsList.innerHTML = data.results.map(r => `
+            <div class="file-item">
+                ${r.status === 'pushed' ? '✅' : '❌'}
+                <span>${r.file}</span>
+                <span class="file-status ${r.status === 'pushed' ? 'pushed' : 'failed'}">${r.status}</span>
+            </div>`).join('');
+        showStep(3);
+    } catch (e) {
+        showErr('err2', 'Network error. Please try again.');
+        document.querySelectorAll('.file-status').forEach(el => { el.textContent = 'Failed'; el.className = 'file-status failed'; });
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '⬆️ Push All Files to GitHub';
+}
+
+function disconnect() {
+    savedToken = '';
+    document.getElementById('token').value = '';
+    hideErr('err1');
+    showStep(1);
+}
+
+document.getElementById('token').addEventListener('keydown', e => {
+    if (e.key === 'Enter') connectGitHub();
+});
+</script>
+</body>
+</html>
