@@ -1,11 +1,12 @@
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import { logger } from "./logger";
 
 const WORKSPACE = "/home/runner/workspace";
 const OWNER = "savinalexandru2002-prog";
 const REPO = "Alexandru-";
-const PUSH_INTERVAL_MS = 5 * 60 * 1000; // every 5 minutes
+const PUSH_INTERVAL_MS = 5 * 60 * 1000;
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", ".cache", ".replit-artifact", "cloned-repo"]);
 const ALLOWED_EXTS = new Set([".ts", ".js", ".tsx", ".jsx", ".json", ".yaml", ".yml", ".html", ".css", ".md", ".txt"]);
@@ -13,16 +14,23 @@ const ALLOWED_EXTS = new Set([".ts", ".js", ".tsx", ".jsx", ".json", ".yaml", ".
 export let lastPushTime: Date | null = null;
 export let lastPushResults: { file: string; status: string }[] = [];
 export let autoPushEnabled = false;
+export let isPushing = false;
+
+// Track content hashes to skip unchanged files
+const pushedHashes = new Map<string, string>();
+
+function hashContent(content: string): string {
+  return crypto.createHash("sha256").update(content).digest("hex");
+}
 
 function walkDir(dir: string, base: string, results: { path: string; content: string }[]) {
   if (!fs.existsSync(dir)) return;
   let entries: fs.Dirent[];
   try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-
   for (const entry of entries) {
     if (SKIP_DIRS.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
-    const rel = path.join(base, entry.name);
+    const rel = path.posix.join(base, entry.name);
     if (entry.isDirectory()) {
       walkDir(full, rel, results);
     } else {
@@ -38,7 +46,6 @@ function walkDir(dir: string, base: string, results: { path: string; content: st
 function collectFiles(): { path: string; content: string }[] {
   const files: { path: string; content: string }[] = [];
 
-  // Original cloned repo files
   const rootFiles = [
     { src: "cloned-repo/index.html", dest: "index.html" },
     { src: "cloned-repo/Termux MP3 player", dest: "Termux MP3 player" },
@@ -52,7 +59,6 @@ function collectFiles(): { path: string; content: string }[] {
     } catch { /* skip */ }
   }
 
-  // All artifacts (one folder per app)
   const artifactsDir = path.join(WORKSPACE, "artifacts");
   if (fs.existsSync(artifactsDir)) {
     const artifacts = fs.readdirSync(artifactsDir, { withFileTypes: true })
@@ -62,11 +68,7 @@ function collectFiles(): { path: string; content: string }[] {
     for (const artifact of artifacts) {
       const srcDir = path.join(artifactsDir, artifact, "src");
       const indexHtml = path.join(artifactsDir, artifact, "index.html");
-
-      // Push src/ folder under replit-apps/<artifact>/
       walkDir(srcDir, `replit-apps/${artifact}/src`, files);
-
-      // Push index.html if exists
       if (fs.existsSync(indexHtml)) {
         try {
           const content = fs.readFileSync(indexHtml, "utf8");
@@ -76,61 +78,102 @@ function collectFiles(): { path: string; content: string }[] {
     }
   }
 
-  // API server source
-  walkDir(path.join(WORKSPACE, "artifacts/api-server/src"), "replit-apps/api-server/src", files);
-
   return files;
 }
 
-async function pushFilesToGitHub(token: string): Promise<{ file: string; status: string }[]> {
-  const files = collectFiles();
-  const results: { file: string; status: string }[] = [];
+async function pushOne(
+  file: { path: string; content: string },
+  headers: Record<string, string>,
+  retries = 3
+): Promise<{ file: string; status: string }> {
+  // Use path segments — GitHub Contents API expects each segment encoded separately
+  const urlPath = file.path.split("/").map(encodeURIComponent).join("/");
+  const apiUrl = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${urlPath}`;
+  const encoded = Buffer.from(file.content, "utf8").toString("base64");
 
+  try {
+    let sha: string | undefined;
+    const existing = await fetch(apiUrl, { headers });
+    if (existing.ok) {
+      const data = await existing.json() as { sha: string };
+      sha = data.sha;
+    }
+
+    const body: Record<string, string> = {
+      message: `Auto-push: ${file.path}`,
+      content: encoded,
+    };
+    if (sha) body.sha = sha;
+
+    const put = await fetch(apiUrl, { method: "PUT", headers, body: JSON.stringify(body) });
+
+    if (put.status === 409 && retries > 0) {
+      // Wait longer on each retry to let GitHub settle
+      await new Promise(r => setTimeout(r, 600 * (4 - retries)));
+      return pushOne(file, headers, retries - 1);
+    }
+
+    return { file: file.path, status: put.ok ? "pushed" : `failed (${put.status})` };
+  } catch {
+    return { file: file.path, status: "error" };
+  }
+}
+
+async function pushFilesToGitHub(token: string): Promise<{ file: string; status: string }[]> {
+  const allFiles = collectFiles();
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github+json",
     "Content-Type": "application/json",
   };
 
-  for (const file of files) {
-    const apiUrl = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${encodeURIComponent(file.path)}`;
-    try {
-      let sha: string | undefined;
-      const existing = await fetch(apiUrl, { headers });
-      if (existing.ok) {
-        const data = await existing.json() as { sha: string };
-        sha = data.sha;
-      }
+  // Only push files whose content has changed since the last successful push
+  const toUpdate = allFiles.filter(f => {
+    const h = hashContent(f.content);
+    if (pushedHashes.get(f.path) === h) return false;
+    return true;
+  });
 
-      const body: Record<string, string> = {
-        message: `Auto-push: update ${file.path}`,
-        content: Buffer.from(file.content, "utf8").toString("base64"),
-      };
-      if (sha) body.sha = sha;
+  const skipped = allFiles.length - toUpdate.length;
+  if (skipped > 0) logger.info({ skipped }, "Auto-push: skipping unchanged files");
 
-      const put = await fetch(apiUrl, { method: "PUT", headers, body: JSON.stringify(body) });
-      results.push({ file: file.path, status: put.ok ? "pushed" : `failed (${put.status})` });
-    } catch (e) {
-      results.push({ file: file.path, status: "error" });
+  const results: { file: string; status: string }[] = [];
+
+  // Sequential writes — GitHub's Contents API conflicts on concurrent commits
+  for (const file of toUpdate) {
+    const result = await pushOne(file, headers);
+    results.push(result);
+    if (result.status === "pushed") {
+      pushedHashes.set(file.path, hashContent(file.content));
     }
   }
 
   return results;
 }
 
-export async function triggerPush(): Promise<{ file: string; status: string }[]> {
+export async function triggerPush(): Promise<void> {
+  if (isPushing) {
+    logger.info("Auto-push: already in progress, skipping");
+    return;
+  }
   const token = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
   if (!token) {
     logger.warn("Auto-push skipped: GITHUB_PERSONAL_ACCESS_TOKEN not set");
-    return [];
+    return;
   }
-  logger.info("Auto-push: starting push to GitHub");
-  const results = await pushFilesToGitHub(token);
-  lastPushTime = new Date();
-  lastPushResults = results;
-  const pushed = results.filter(r => r.status === "pushed").length;
-  logger.info({ pushed, total: results.length }, "Auto-push: complete");
-  return results;
+  isPushing = true;
+  logger.info("Auto-push: starting");
+  try {
+    const results = await pushFilesToGitHub(token);
+    lastPushTime = new Date();
+    lastPushResults = results;
+    const pushed = results.filter(r => r.status === "pushed").length;
+    const failed = results.filter(r => r.status !== "pushed");
+    logger.info({ pushed, total: results.length }, "Auto-push: complete");
+    if (failed.length) logger.warn({ failed: failed.map(f => f.file) }, "Auto-push: failed files");
+  } finally {
+    isPushing = false;
+  }
 }
 
 export function startAutoPush() {
@@ -139,14 +182,9 @@ export function startAutoPush() {
     logger.warn("Auto-push disabled: GITHUB_PERSONAL_ACCESS_TOKEN not set");
     return;
   }
-
   autoPushEnabled = true;
   logger.info({ intervalMs: PUSH_INTERVAL_MS }, "Auto-push: enabled");
-
-  // Push immediately on startup
   triggerPush().catch(e => logger.error({ err: e }, "Auto-push: startup push failed"));
-
-  // Then push on interval
   setInterval(() => {
     triggerPush().catch(e => logger.error({ err: e }, "Auto-push: scheduled push failed"));
   }, PUSH_INTERVAL_MS);
