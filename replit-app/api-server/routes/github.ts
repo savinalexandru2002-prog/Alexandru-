@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import fs from "fs";
 import path from "path";
 import { lastPushTime, lastPushResults, autoPushEnabled, isPushing, triggerPush } from "../lib/auto-push";
+import { PROJECTS, ORIGINAL_FILES } from "../lib/projects";
 
 const router: IRouter = Router();
 
@@ -70,6 +71,31 @@ function getFilesToPush(): { path: string; content: string }[] {
 
   return files;
 }
+
+router.get("/github/projects", (_req, res): void => {
+  const pushed = new Set(lastPushResults.filter(r => r.status === "pushed").map(r => r.file));
+  const failed = new Set(lastPushResults.filter(r => r.status !== "pushed").map(r => r.file));
+
+  const projects = PROJECTS.map(p => {
+    const prefix = `replit-apps/${p.slug}/`;
+    const projectFiles = lastPushResults.filter(r => r.file.startsWith(prefix));
+    return {
+      ...p,
+      githubUrl: `https://github.com/savinalexandru2002-prog/Alexandru-/tree/main/replit-apps/${p.slug}`,
+      fileCount: projectFiles.length,
+      syncedOk: projectFiles.every(r => r.status === "pushed"),
+    };
+  });
+
+  const originals = ORIGINAL_FILES.map(p => ({
+    ...p,
+    githubUrl: `https://github.com/savinalexandru2002-prog/Alexandru-/blob/main/${p.slug === "termux-mp3" ? "Termux%20MP3%20player" : p.slug}`,
+    fileCount: 1,
+    syncedOk: pushed.has("Termux MP3 player") && !failed.has("Termux MP3 player"),
+  }));
+
+  res.json({ projects, originals, lastPushTime: lastPushTime?.toISOString() ?? null });
+});
 
 router.get("/github/status", (_req, res): void => {
   res.json({
