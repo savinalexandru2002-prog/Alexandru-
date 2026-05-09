@@ -26,6 +26,33 @@ export const PROJECTS: ProjectMeta[] = [
   },
 ];
 
+export const LIBS: ProjectMeta[] = [
+  {
+    slug: "api-spec",
+    name: "API Spec",
+    description: "OpenAPI specification that defines the contract between the frontend and backend.",
+    icon: "📋",
+  },
+  {
+    slug: "api-client-react",
+    name: "API Client (React)",
+    description: "Auto-generated React Query hooks and TypeScript types from the OpenAPI spec.",
+    icon: "🔗",
+  },
+  {
+    slug: "api-zod",
+    name: "API Zod Schemas",
+    description: "Auto-generated Zod validation schemas from the OpenAPI spec.",
+    icon: "🛡️",
+  },
+  {
+    slug: "db",
+    name: "Database",
+    description: "Drizzle ORM schema and PostgreSQL database configuration.",
+    icon: "🗄️",
+  },
+];
+
 export const ORIGINAL_FILES: ProjectMeta[] = [
   {
     slug: "termux-mp3",
@@ -36,5 +63,5 @@ export const ORIGINAL_FILES: ProjectMeta[] = [
 ];
 
 export function getProject(slug: string): ProjectMeta | undefined {
-  return PROJECTS.find(p => p.slug === slug);
+  return [...PROJECTS, ...LIBS].find(p => p.slug === slug);
 }
