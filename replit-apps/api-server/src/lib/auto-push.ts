@@ -88,12 +88,33 @@ function generateLibReadme(slug: string): string {
 }
 
 function generateRootReadme(): string {
-  const projectLines = PROJECTS.map(p =>
-    `| ${p.icon} [${p.name}](replit-apps/${p.slug}/) | ${p.description} |`
-  ).join("\n");
-  const libLines = LIBS.map(p =>
-    `| ${p.icon} [${p.name}](lib/${p.slug}/) | ${p.description} |`
-  ).join("\n");
+  // Discover artifacts dynamically
+  const artifactsDir = path.join(WORKSPACE, "artifacts");
+  const artifactSlugs: string[] = fs.existsSync(artifactsDir)
+    ? fs.readdirSync(artifactsDir, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name)
+    : [];
+
+  const libDir = path.join(WORKSPACE, "lib");
+  const libSlugs: string[] = fs.existsSync(libDir)
+    ? fs.readdirSync(libDir, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name)
+    : [];
+
+  const projectLines = artifactSlugs.map(slug => {
+    const known = PROJECTS.find(p => p.slug === slug);
+    const name = known?.name ?? slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    const icon = known?.icon ?? "📦";
+    const desc = known?.description ?? `Replit app — ${slug}`;
+    return `| ${icon} [${name}](replit-apps/${slug}/) | ${desc} |`;
+  }).join("\n");
+
+  const libLines = libSlugs.map(slug => {
+    const known = LIBS.find(p => p.slug === slug);
+    const name = known?.name ?? slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    const icon = known?.icon ?? "📚";
+    const desc = known?.description ?? `Shared library — ${slug}`;
+    return `| ${icon} [${name}](lib/${slug}/) | ${desc} |`;
+  }).join("\n");
+
   const originalLines = ORIGINAL_FILES.map(p =>
     `| ${p.icon} [${p.name}](${p.slug === "termux-mp3" ? "Termux%20MP3%20player" : p.slug}) | ${p.description} |`
   ).join("\n");
