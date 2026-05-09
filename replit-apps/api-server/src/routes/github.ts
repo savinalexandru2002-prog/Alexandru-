@@ -74,27 +74,46 @@ function getFilesToPush(): { path: string; content: string }[] {
 
 router.get("/github/projects", (_req, res): void => {
   const pushed = new Set(lastPushResults.filter(r => r.status === "pushed").map(r => r.file));
-  const failed = new Set(lastPushResults.filter(r => r.status !== "pushed").map(r => r.file));
 
-  const projects = PROJECTS.map(p => {
-    const prefix = `replit-apps/${p.slug}/`;
+  // Discover artifacts dynamically from the filesystem
+  const artifactsDir = path.join(WORKSPACE, "artifacts");
+  const artifactSlugs: string[] = fs.existsSync(artifactsDir)
+    ? fs.readdirSync(artifactsDir, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name)
+    : [];
+
+  const projects = artifactSlugs.map(slug => {
+    const known = PROJECTS.find(p => p.slug === slug);
+    const prefix = `replit-apps/${slug}/`;
     const projectFiles = lastPushResults.filter(r => r.file.startsWith(prefix));
     return {
-      ...p,
-      githubUrl: `https://github.com/savinalexandru2002-prog/Alexandru-/tree/main/replit-apps/${p.slug}`,
+      slug,
+      name: known?.name ?? slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+      description: known?.description ?? `Replit app — ${slug}`,
+      icon: known?.icon ?? "📦",
+      githubUrl: `https://github.com/savinalexandru2002-prog/Alexandru-/tree/main/replit-apps/${slug}`,
       fileCount: projectFiles.length,
-      syncedOk: projectFiles.length > 0 && projectFiles.every(r => r.status === "pushed"),
+      syncedOk: projectFiles.length > 0 && projectFiles.every(r => r.file && pushed.has(r.file)),
     };
   });
 
-  const libs = LIBS.map(p => {
-    const prefix = `lib/${p.slug}/`;
+  // Discover libs dynamically from the filesystem
+  const libDir = path.join(WORKSPACE, "lib");
+  const libSlugs: string[] = fs.existsSync(libDir)
+    ? fs.readdirSync(libDir, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name)
+    : [];
+
+  const libs = libSlugs.map(slug => {
+    const known = LIBS.find(p => p.slug === slug);
+    const prefix = `lib/${slug}/`;
     const libFiles = lastPushResults.filter(r => r.file.startsWith(prefix));
     return {
-      ...p,
-      githubUrl: `https://github.com/savinalexandru2002-prog/Alexandru-/tree/main/lib/${p.slug}`,
+      slug,
+      name: known?.name ?? slug.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+      description: known?.description ?? `Shared library — ${slug}`,
+      icon: known?.icon ?? "📚",
+      githubUrl: `https://github.com/savinalexandru2002-prog/Alexandru-/tree/main/lib/${slug}`,
       fileCount: libFiles.length,
-      syncedOk: libFiles.length > 0 && libFiles.every(r => r.status === "pushed"),
+      syncedOk: libFiles.length > 0 && libFiles.every(r => r.file && pushed.has(r.file)),
     };
   });
 
@@ -102,7 +121,7 @@ router.get("/github/projects", (_req, res): void => {
     ...p,
     githubUrl: `https://github.com/savinalexandru2002-prog/Alexandru-/blob/main/${p.slug === "termux-mp3" ? "Termux%20MP3%20player" : p.slug}`,
     fileCount: 1,
-    syncedOk: pushed.has("Termux MP3 player") && !failed.has("Termux MP3 player"),
+    syncedOk: pushed.has("Termux MP3 player"),
   }));
 
   res.json({ projects, libs, originals, lastPushTime: lastPushTime?.toISOString() ?? null });
