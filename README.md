@@ -6,16 +6,16 @@
 
 | Project | Description |
 |---------|-------------|
-| 🛰️ [GitHub Distribution Hub](replit-apps/mp3-player/) | Central hub for connecting and pushing all Replit projects to GitHub automatically. |
 | ⚙️ [API Server](replit-apps/api-server/) | Express backend powering the Distribution Hub — handles GitHub auth, file pushing, and auto-sync. |
 | 🧪 [Component Sandbox](replit-apps/mockup-sandbox/) | Live preview environment for building and comparing UI components side-by-side. |
+| 🛰️ [GitHub Distribution Hub](replit-apps/mp3-player/) | Central hub for connecting and pushing all Replit projects to GitHub automatically. |
 
 ## Shared Libraries
 
 | Library | Description |
 |---------|-------------|
-| 📋 [API Spec](lib/api-spec/) | OpenAPI specification that defines the contract between the frontend and backend. |
 | 🔗 [API Client (React)](lib/api-client-react/) | Auto-generated React Query hooks and TypeScript types from the OpenAPI spec. |
+| 📋 [API Spec](lib/api-spec/) | OpenAPI specification that defines the contract between the frontend and backend. |
 | 🛡️ [API Zod Schemas](lib/api-zod/) | Auto-generated Zod validation schemas from the OpenAPI spec. |
 | 🗄️ [Database](lib/db/) | Drizzle ORM schema and PostgreSQL database configuration. |
 
