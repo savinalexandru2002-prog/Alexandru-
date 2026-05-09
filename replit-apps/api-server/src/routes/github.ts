@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import fs from "fs";
 import path from "path";
 import { lastPushTime, lastPushResults, autoPushEnabled, isPushing, triggerPush } from "../lib/auto-push";
-import { PROJECTS, ORIGINAL_FILES } from "../lib/projects";
+import { PROJECTS, LIBS, ORIGINAL_FILES } from "../lib/projects";
 
 const router: IRouter = Router();
 
@@ -83,7 +83,18 @@ router.get("/github/projects", (_req, res): void => {
       ...p,
       githubUrl: `https://github.com/savinalexandru2002-prog/Alexandru-/tree/main/replit-apps/${p.slug}`,
       fileCount: projectFiles.length,
-      syncedOk: projectFiles.every(r => r.status === "pushed"),
+      syncedOk: projectFiles.length > 0 && projectFiles.every(r => r.status === "pushed"),
+    };
+  });
+
+  const libs = LIBS.map(p => {
+    const prefix = `lib/${p.slug}/`;
+    const libFiles = lastPushResults.filter(r => r.file.startsWith(prefix));
+    return {
+      ...p,
+      githubUrl: `https://github.com/savinalexandru2002-prog/Alexandru-/tree/main/lib/${p.slug}`,
+      fileCount: libFiles.length,
+      syncedOk: libFiles.length > 0 && libFiles.every(r => r.status === "pushed"),
     };
   });
 
@@ -94,7 +105,7 @@ router.get("/github/projects", (_req, res): void => {
     syncedOk: pushed.has("Termux MP3 player") && !failed.has("Termux MP3 player"),
   }));
 
-  res.json({ projects, originals, lastPushTime: lastPushTime?.toISOString() ?? null });
+  res.json({ projects, libs, originals, lastPushTime: lastPushTime?.toISOString() ?? null });
 });
 
 router.get("/github/status", (_req, res): void => {
