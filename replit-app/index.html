@@ -154,7 +154,7 @@ async function loadStatus() {
             fetch('/api/github/projects'),
         ]);
         const status = await statusRes.json();
-        const { projects, originals, lastPushTime } = await projectsRes.json();
+        const { projects, libs, originals, lastPushTime } = await projectsRes.json();
 
         // Badge
         const badge = document.getElementById('sync-badge');
@@ -176,7 +176,7 @@ async function loadStatus() {
 
         // Project cards
         const grid = document.getElementById('projects-grid');
-        const allProjects = [...(projects || []), ...(originals || [])];
+        const allProjects = [...(projects || []), ...(libs || []), ...(originals || [])];
         if (allProjects.length === 0) {
             grid.innerHTML = '<p style="color:#8b949e;font-size:13px;">No projects yet.</p>';
             return;
