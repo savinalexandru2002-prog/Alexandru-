@@ -3,14 +3,31 @@ import path from "path";
 import crypto from "crypto";
 import { logger } from "./logger";
 import { PROJECTS, LIBS, ORIGINAL_FILES } from "./projects";
+import { ReplitConnectors } from "@replit/connectors-sdk";
 
 const WORKSPACE = "/home/runner/workspace";
 const OWNER = "savinalexandru2002-prog";
 const REPO = "Alexandru-";
 const PUSH_INTERVAL_MS = 5 * 60 * 1000;
 
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", ".cache", ".replit-artifact", "cloned-repo"]);
-const ALLOWED_EXTS = new Set([".ts", ".js", ".tsx", ".jsx", ".json", ".yaml", ".yml", ".html", ".css", ".md", ".txt"]);
+const SKIP_DIRS = new Set([
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  ".cache",
+  ".replit-artifact",
+  "cloned-repo",
+  ".turbo",
+  ".vite",
+]);
+const ALLOWED_EXTS = new Set([
+  ".ts", ".js", ".tsx", ".jsx", ".mjs", ".cjs",
+  ".json", ".yaml", ".yml", ".toml",
+  ".html", ".css", ".scss", ".md", ".txt",
+  ".svg", ".webmanifest", ".ico",
+  ".py", ".sh", ".sql",
+]);
 
 export let lastPushTime: Date | null = null;
 export let lastPushResults: { file: string; status: string }[] = [];
@@ -20,11 +37,13 @@ export let isPushing = false;
 // Track content hashes to skip unchanged files
 const pushedHashes = new Map<string, string>();
 
-function hashContent(content: string): string {
+type SyncFile = { path: string; content: Buffer | string };
+
+function hashContent(content: Buffer | string): string {
   return crypto.createHash("sha256").update(content).digest("hex");
 }
 
-function walkDir(dir: string, base: string, results: { path: string; content: string }[]) {
+function walkDir(dir: string, base: string, results: SyncFile[]) {
   if (!fs.existsSync(dir)) return;
   let entries: fs.Dirent[];
   try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
@@ -37,11 +56,17 @@ function walkDir(dir: string, base: string, results: { path: string; content: st
     } else {
       if (!ALLOWED_EXTS.has(path.extname(entry.name))) continue;
       try {
-        const content = fs.readFileSync(full, "utf8");
-        if (content.trim().length > 0) results.push({ path: rel, content });
+        const content = fs.readFileSync(full);
+        if (content.length > 0) {
+          results.push({ path: rel, content: isTextFile(entry.name) ? content.toString("utf8") : content });
+        }
       } catch { /* skip binary */ }
     }
   }
+}
+
+function isTextFile(name: string): boolean {
+  return ![".ico"].includes(path.extname(name).toLowerCase());
 }
 
 function generateProjectReadme(slug: string): string {
@@ -162,8 +187,8 @@ function collectFiles(): { path: string; content: string }[] {
     const full = path.join(WORKSPACE, c.src);
     if (!fs.existsSync(full)) continue;
     try {
-      const content = fs.readFileSync(full, "utf8");
-      if (content.trim().length > 0) files.push({ path: c.dest, content });
+      const content = fs.readFileSync(full);
+      if (content.length > 0) files.push({ path: c.dest, content: content.toString("utf8") });
     } catch { /* skip */ }
   }
 
@@ -173,8 +198,8 @@ function collectFiles(): { path: string; content: string }[] {
     const full = path.join(WORKSPACE, name);
     if (!fs.existsSync(full)) continue;
     try {
-      const content = fs.readFileSync(full, "utf8");
-      if (content.trim().length > 0) files.push({ path: name, content });
+      const content = fs.readFileSync(full);
+      if (content.length > 0) files.push({ path: name, content: content.toString("utf8") });
     } catch { /* skip */ }
   }
 
@@ -186,16 +211,8 @@ function collectFiles(): { path: string; content: string }[] {
       .map(e => e.name);
 
     for (const artifact of artifacts) {
-      const srcDir = path.join(artifactsDir, artifact, "src");
-      const indexHtml = path.join(artifactsDir, artifact, "index.html");
       files.push({ path: `replit-apps/${artifact}/README.md`, content: generateProjectReadme(artifact) });
-      walkDir(srcDir, `replit-apps/${artifact}/src`, files);
-      if (fs.existsSync(indexHtml)) {
-        try {
-          const content = fs.readFileSync(indexHtml, "utf8");
-          if (content.trim().length > 0) files.push({ path: `replit-apps/${artifact}/index.html`, content });
-        } catch { /* skip */ }
-      }
+      walkDir(path.join(artifactsDir, artifact), `replit-apps/${artifact}`, files);
     }
   }
 
@@ -208,17 +225,7 @@ function collectFiles(): { path: string; content: string }[] {
 
     for (const lib of libs) {
       files.push({ path: `lib/${lib}/README.md`, content: generateLibReadme(lib) });
-      walkDir(path.join(libDir, lib, "src"), `lib/${lib}/src`, files);
-      // Also include root-level ts/json files in the lib package
-      const libRoot = path.join(libDir, lib);
-      for (const fname of ["package.json", "tsconfig.json"]) {
-        const full = path.join(libRoot, fname);
-        if (!fs.existsSync(full)) continue;
-        try {
-          const content = fs.readFileSync(full, "utf8");
-          if (content.trim().length > 0) files.push({ path: `lib/${lib}/${fname}`, content });
-        } catch { /* skip */ }
-      }
+      walkDir(path.join(libDir, lib), `lib/${lib}`, files);
     }
   }
 
@@ -230,8 +237,8 @@ function collectFiles(): { path: string; content: string }[] {
   const scriptsPkg = path.join(WORKSPACE, "scripts", "package.json");
   if (fs.existsSync(scriptsPkg)) {
     try {
-      const content = fs.readFileSync(scriptsPkg, "utf8");
-      if (content.trim().length > 0) files.push({ path: "scripts/package.json", content });
+      const content = fs.readFileSync(scriptsPkg);
+      if (content.length > 0) files.push({ path: "scripts/package.json", content: content.toString("utf8") });
     } catch { /* skip */ }
   }
 
@@ -239,18 +246,22 @@ function collectFiles(): { path: string; content: string }[] {
 }
 
 async function pushOne(
-  file: { path: string; content: string },
-  headers: Record<string, string>,
+  file: SyncFile,
+  connectors: ReplitConnectors,
   retries = 3
 ): Promise<{ file: string; status: string }> {
   // Use path segments — GitHub Contents API expects each segment encoded separately
   const urlPath = file.path.split("/").map(encodeURIComponent).join("/");
-  const apiUrl = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${urlPath}`;
-  const encoded = Buffer.from(file.content, "utf8").toString("base64");
+  const encoded = Buffer.isBuffer(file.content)
+    ? file.content.toString("base64")
+    : Buffer.from(file.content, "utf8").toString("base64");
 
   try {
     let sha: string | undefined;
-    const existing = await fetch(apiUrl, { headers });
+    const existing = await connectors.proxy("github", `/repos/${OWNER}/${REPO}/contents/${urlPath}`, {
+      method: "GET",
+      headers: { Accept: "application/vnd.github+json" },
+    });
     if (existing.ok) {
       const data = await existing.json() as { sha: string };
       sha = data.sha;
@@ -262,12 +273,19 @@ async function pushOne(
     };
     if (sha) body.sha = sha;
 
-    const put = await fetch(apiUrl, { method: "PUT", headers, body: JSON.stringify(body) });
+    const put = await connectors.proxy("github", `/repos/${OWNER}/${REPO}/contents/${urlPath}`, {
+      method: "PUT",
+      headers: {
+        Accept: "application/vnd.github+json",
+        "Content-Type": "application/json",
+      },
+      body,
+    });
 
     if (put.status === 409 && retries > 0) {
       // Wait longer on each retry to let GitHub settle
       await new Promise(r => setTimeout(r, 600 * (4 - retries)));
-      return pushOne(file, headers, retries - 1);
+      return pushOne(file, connectors, retries - 1);
     }
 
     return { file: file.path, status: put.ok ? "pushed" : `failed (${put.status})` };
@@ -276,13 +294,9 @@ async function pushOne(
   }
 }
 
-async function pushFilesToGitHub(token: string): Promise<{ file: string; status: string }[]> {
+async function pushFilesToGitHub(): Promise<{ file: string; status: string }[]> {
   const allFiles = collectFiles();
-  const headers: Record<string, string> = {
-    Authorization: `Bearer ${token}`,
-    Accept: "application/vnd.github+json",
-    "Content-Type": "application/json",
-  };
+  const connectors = new ReplitConnectors();
 
   // Only push files whose content has changed since the last successful push
   const toUpdate = allFiles.filter(f => {
@@ -295,10 +309,15 @@ async function pushFilesToGitHub(token: string): Promise<{ file: string; status:
   if (skipped > 0) logger.info({ skipped }, "Auto-push: skipping unchanged files");
 
   const results: { file: string; status: string }[] = [];
+  for (const file of allFiles) {
+    if (!toUpdate.includes(file)) {
+      results.push({ file: file.path, status: "unchanged" });
+    }
+  }
 
   // Sequential writes — GitHub's Contents API conflicts on concurrent commits
   for (const file of toUpdate) {
-    const result = await pushOne(file, headers);
+    const result = await pushOne(file, connectors);
     results.push(result);
     if (result.status === "pushed") {
       pushedHashes.set(file.path, hashContent(file.content));
@@ -313,15 +332,10 @@ export async function triggerPush(): Promise<void> {
     logger.info("Auto-push: already in progress, skipping");
     return;
   }
-  const token = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
-  if (!token) {
-    logger.warn("Auto-push skipped: GITHUB_PERSONAL_ACCESS_TOKEN not set");
-    return;
-  }
   isPushing = true;
   logger.info("Auto-push: starting");
   try {
-    const results = await pushFilesToGitHub(token);
+    const results = await pushFilesToGitHub();
     lastPushTime = new Date();
     lastPushResults = results;
     const pushed = results.filter(r => r.status === "pushed").length;
@@ -334,13 +348,8 @@ export async function triggerPush(): Promise<void> {
 }
 
 export function startAutoPush() {
-  const token = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
-  if (!token) {
-    logger.warn("Auto-push disabled: GITHUB_PERSONAL_ACCESS_TOKEN not set");
-    return;
-  }
   autoPushEnabled = true;
-  logger.info({ intervalMs: PUSH_INTERVAL_MS }, "Auto-push: enabled");
+  logger.info({ intervalMs: PUSH_INTERVAL_MS }, "Auto-push: enabled through connected GitHub account");
   triggerPush().catch(e => logger.error({ err: e }, "Auto-push: startup push failed"));
   setInterval(() => {
     triggerPush().catch(e => logger.error({ err: e }, "Auto-push: scheduled push failed"));
