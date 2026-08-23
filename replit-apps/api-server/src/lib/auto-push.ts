@@ -245,55 +245,6 @@ function collectFiles(): { path: string; content: string }[] {
   return files;
 }
 
-async function pushOne(
-  file: SyncFile,
-  connectors: ReplitConnectors,
-  retries = 3
-): Promise<{ file: string; status: string }> {
-  // Use path segments — GitHub Contents API expects each segment encoded separately
-  const urlPath = file.path.split("/").map(encodeURIComponent).join("/");
-  const encoded = Buffer.isBuffer(file.content)
-    ? file.content.toString("base64")
-    : Buffer.from(file.content, "utf8").toString("base64");
-
-  try {
-    let sha: string | undefined;
-    const existing = await connectors.proxy("github", `/repos/${OWNER}/${REPO}/contents/${urlPath}`, {
-      method: "GET",
-      headers: { Accept: "application/vnd.github+json" },
-    });
-    if (existing.ok) {
-      const data = await existing.json() as { sha: string };
-      sha = data.sha;
-    }
-
-    const body: Record<string, string> = {
-      message: `Auto-push: ${file.path}`,
-      content: encoded,
-    };
-    if (sha) body.sha = sha;
-
-    const put = await connectors.proxy("github", `/repos/${OWNER}/${REPO}/contents/${urlPath}`, {
-      method: "PUT",
-      headers: {
-        Accept: "application/vnd.github+json",
-        "Content-Type": "application/json",
-      },
-      body,
-    });
-
-    if (put.status === 409 && retries > 0) {
-      // Wait longer on each retry to let GitHub settle
-      await new Promise(r => setTimeout(r, 600 * (4 - retries)));
-      return pushOne(file, connectors, retries - 1);
-    }
-
-    return { file: file.path, status: put.ok ? "pushed" : `failed (${put.status})` };
-  } catch {
-    return { file: file.path, status: "error" };
-  }
-}
-
 async function pushFilesToGitHub(): Promise<{ file: string; status: string }[]> {
   const allFiles = collectFiles();
   const connectors = new ReplitConnectors();
@@ -315,12 +266,121 @@ async function pushFilesToGitHub(): Promise<{ file: string; status: string }[]> 
     }
   }
 
-  // Sequential writes — GitHub's Contents API conflicts on concurrent commits
-  for (const file of toUpdate) {
-    const result = await pushOne(file, connectors);
-    results.push(result);
-    if (result.status === "pushed") {
-      pushedHashes.set(file.path, hashContent(file.content));
+  if (toUpdate.length === 0) return results;
+
+  const api = `/repos/${OWNER}/${REPO}`;
+  const headers = {
+    Accept: "application/vnd.github+json",
+    "Content-Type": "application/json",
+  };
+  async function githubRequest(
+    requestPath: string,
+    options: { method: string; headers: Record<string, string>; body?: unknown },
+  ): Promise<Response> {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const response = await connectors.proxy("github", requestPath, options);
+      if (response.status !== 429 && response.status < 500) return response;
+      const retryAfter = Number(response.headers.get("retry-after") ?? "0");
+      const waitMs = retryAfter > 0 ? retryAfter * 1000 : 1000 * (attempt + 1);
+      logger.warn({ status: response.status, waitMs }, "Auto-push: GitHub asked for a retry");
+      await new Promise(resolve => setTimeout(resolve, waitMs));
+    }
+    return connectors.proxy("github", requestPath, options);
+  }
+
+  try {
+    // Build blobs in parallel, then publish one atomic tree/commit. This avoids
+    // the Contents API's one-commit-per-file race and partial uploads.
+    const blobResults: { file: SyncFile; sha?: string; error?: string }[] = [];
+    for (let i = 0; i < toUpdate.length; i += 5) {
+      const batch = toUpdate.slice(i, i + 5);
+      const created = await Promise.all(batch.map(async (file) => {
+        const content = Buffer.isBuffer(file.content)
+          ? file.content.toString("base64")
+          : Buffer.from(file.content, "utf8").toString("base64");
+        const response = await githubRequest(`${api}/git/blobs`, {
+          method: "POST",
+          headers,
+          body: { content, encoding: "base64" },
+        });
+        if (!response.ok) return { file, error: `failed (${response.status})` };
+        const data = await response.json() as { sha?: string };
+        return data.sha ? { file, sha: data.sha } : { file, error: "error" };
+      }));
+      blobResults.push(...created);
+    }
+
+    const blobFailures = blobResults.filter(item => !item.sha);
+    if (blobFailures.length > 0) {
+      return [
+        ...results,
+        ...blobResults.map(item => ({ file: item.file.path, status: item.error ?? "error" })),
+      ];
+    }
+
+    const refResponse = await githubRequest(`${api}/git/ref/heads/main`, {
+      method: "GET",
+      headers,
+    });
+    if (!refResponse.ok) throw new Error(`Could not read main branch (${refResponse.status})`);
+    const ref = await refResponse.json() as { object?: { sha?: string } };
+    const parentSha = ref.object?.sha;
+    if (!parentSha) throw new Error("GitHub did not return the main branch SHA");
+
+    const commitResponse = await githubRequest(`${api}/git/commits/${parentSha}`, {
+      method: "GET",
+      headers,
+    });
+    if (!commitResponse.ok) throw new Error(`Could not read repository tree (${commitResponse.status})`);
+    const commit = await commitResponse.json() as { tree?: { sha?: string } };
+    const baseTreeSha = commit.tree?.sha;
+    if (!baseTreeSha) throw new Error("GitHub did not return the repository tree SHA");
+
+    const treeResponse = await githubRequest(`${api}/git/trees`, {
+      method: "POST",
+      headers,
+      body: {
+        base_tree: baseTreeSha,
+        tree: blobResults.map(item => ({
+          path: item.file.path,
+          mode: "100644",
+          type: "blob",
+          sha: item.sha,
+        })),
+      },
+    });
+    if (!treeResponse.ok) throw new Error(`Could not create repository tree (${treeResponse.status})`);
+    const tree = await treeResponse.json() as { sha?: string };
+    if (!tree.sha) throw new Error("GitHub did not return the new tree SHA");
+
+    const newCommitResponse = await githubRequest(`${api}/git/commits`, {
+      method: "POST",
+      headers,
+      body: {
+        message: `Auto-publish ${toUpdate.length} changed project files`,
+        tree: tree.sha,
+        parents: [parentSha],
+      },
+    });
+    if (!newCommitResponse.ok) throw new Error(`Could not create commit (${newCommitResponse.status})`);
+    const newCommit = await newCommitResponse.json() as { sha?: string };
+    if (!newCommit.sha) throw new Error("GitHub did not return the new commit SHA");
+
+    const updateRefResponse = await githubRequest(`${api}/git/refs/heads/main`, {
+      method: "PATCH",
+      headers,
+      body: { sha: newCommit.sha, force: false },
+    });
+    if (!updateRefResponse.ok) throw new Error(`Could not publish commit (${updateRefResponse.status})`);
+
+    for (const item of blobResults) {
+      pushedHashes.set(item.file.path, hashContent(item.file.content));
+      results.push({ file: item.file.path, status: "pushed" });
+    }
+  } catch (error) {
+    logger.error({ err: error }, "Auto-push: atomic publish failed");
+    for (const file of toUpdate) {
+      results.push({ file: file.path, status: "error" });
     }
   }
 
