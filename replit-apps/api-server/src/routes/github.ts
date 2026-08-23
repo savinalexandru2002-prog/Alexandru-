@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import fs from "fs";
 import path from "path";
 import { lastPushTime, lastPushResults, autoPushEnabled, isPushing, triggerPush } from "../lib/auto-push";
+import { logger } from "../lib/logger";
 import { PROJECTS, LIBS, ORIGINAL_FILES } from "../lib/projects";
 
 const router: IRouter = Router();
@@ -92,7 +93,7 @@ router.get("/github/projects", (_req, res): void => {
       icon: known?.icon ?? "📦",
       githubUrl: `https://github.com/savinalexandru2002-prog/Alexandru-/tree/main/replit-apps/${slug}`,
       fileCount: projectFiles.length,
-      syncedOk: projectFiles.length > 0 && projectFiles.every(r => r.file && pushed.has(r.file)),
+       syncedOk: projectFiles.length > 0 && projectFiles.every(r => r.status === "unchanged" || pushed.has(r.file)),
     };
   });
 
@@ -113,7 +114,7 @@ router.get("/github/projects", (_req, res): void => {
       icon: known?.icon ?? "📚",
       githubUrl: `https://github.com/savinalexandru2002-prog/Alexandru-/tree/main/lib/${slug}`,
       fileCount: libFiles.length,
-      syncedOk: libFiles.length > 0 && libFiles.every(r => r.file && pushed.has(r.file)),
+       syncedOk: libFiles.length > 0 && libFiles.every(r => r.status === "unchanged" || pushed.has(r.file)),
     };
   });
 
@@ -138,7 +139,7 @@ router.get("/github/status", (_req, res): void => {
 
 router.post("/github/trigger", (_req, res): void => {
   // Fire and forget — respond immediately, push runs in background
-  triggerPush().catch(e => console.error("Manual trigger push failed", e));
+  triggerPush().catch(e => logger.error({ err: e }, "Manual trigger push failed"));
   res.json({ started: true });
 });
 
